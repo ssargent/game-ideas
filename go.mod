@@ -3,6 +3,7 @@ module github.com/ssargent/game-ideas
 go 1.19
 
 require (
+	github.com/asdine/storm v2.1.2+incompatible
 	github.com/asdine/storm/v3 v3.2.1 // indirect
 	github.com/google/uuid v1.3.0
 	github.com/inconshreveable/mousetrap v1.0.1 // indirect

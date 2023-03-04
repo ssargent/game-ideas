@@ -1,9 +1,12 @@
 package ledger
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
+	"github.com/asdine/storm/q"
+	"github.com/asdine/storm/v3"
 	"github.com/google/uuid"
 	"github.com/ssargent/game-ideas/internal/engine"
 )
@@ -53,4 +56,65 @@ func (l *Ledger) Debit(e *engine.Engine, amount int64) error {
 	}
 
 	return nil
+}
+
+func CreateLedger(e *engine.Engine, l *Ledger) (*Ledger, error) {
+	id, err := uuid.NewUUID()
+	if err != nil {
+		return nil, fmt.Errorf("error creating ledger id %w", err)
+	}
+
+	l.ID = id
+
+	if err := e.DB.Save(l); err != nil {
+		return nil, fmt.Errorf("error creating ledger %w", err)
+	}
+
+	return l, nil
+}
+
+func GetLedger(e *engine.Engine, l *Ledger) (*Ledger, error) {
+	var ledgers []Ledger
+	if err := e.DB.Select(
+		q.Eq("PlayerID", l.PlayerID),
+		q.Eq("Name", l.Name),
+		q.Eq("Type", l.Type),
+		q.Eq("Currency", l.Currency),
+	).Find(&ledgers); err != nil {
+		return nil, err
+	}
+
+	// we should have only one
+	if len(ledgers) > 1 {
+		return nil, errors.New("database error, multiple ledgers found")
+	}
+
+	return &ledgers[0], nil
+}
+
+func GetOrCreateLedger(e *engine.Engine, l *Ledger) (*Ledger, error) {
+	foundLedger, err := GetLedger(e, l)
+	if err != nil && err != storm.ErrNotFound {
+		return nil, fmt.Errorf("error getting ledger %w", err)
+	}
+
+	if foundLedger != nil {
+		return foundLedger, nil
+	}
+
+	if err == storm.ErrNotFound {
+		createdledger, err := CreateLedger(e, l)
+		if err != nil {
+			return nil, fmt.Errorf("error creating ledger %w", err)
+		}
+
+		return createdledger, nil
+	}
+
+	return nil, nil
+}
+
+func Init(e *engine.Engine) {
+	e.DB.Init(&Ledger{})
+	e.DB.Init(&Entry{})
 }
